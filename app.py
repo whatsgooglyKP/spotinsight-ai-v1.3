@@ -3,8 +3,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from pathlib import Path
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import LabelEncoder
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -80,23 +78,6 @@ def load_data():
 
 missions, actions, readings, anomalies, locations, assets = load_data()
 
-@st.cache_resource
-def train_severity_model():
-    df = anomalies.copy()
-    if len(df) < 5 or "anomaly_type" not in df.columns:
-        return None, None
-    le_type = LabelEncoder()
-    le_crit = LabelEncoder()
-    df["type_enc"] = le_type.fit_transform(df["anomaly_type"].fillna("UNKNOWN"))
-    df["crit_enc"] = le_crit.fit_transform(df["criticality"].fillna("MEDIUM"))
-    X = df[["type_enc","crit_enc"]]
-    y = df["severity"]
-    model = RandomForestClassifier(n_estimators=30, random_state=42)
-    model.fit(X, y)
-    return model, (le_type, le_crit)
-
-model, encoders = train_severity_model()
-
 st.sidebar.title("SPOTInsight AI")
 st.sidebar.caption("Operational Intelligence for SPOT Inspections")
 page = st.sidebar.radio("Go to", [
@@ -104,8 +85,7 @@ page = st.sidebar.radio("Go to", [
     "Where & Why It Matters",
     "What Needs Attention",
     "Is Performance Improving?",
-    "What to Investigate Next",
-    "Severity Predictor"
+    "What to Investigate Next"
 ])
 
 st.title("SPOTInsight AI")
@@ -161,20 +141,5 @@ elif page == "What to Investigate Next":
     st.markdown("Highest-priority items.")
     if "severity" in anomalies.columns:
         st.dataframe(anomalies[anomalies.severity.isin(["HIGH","CRITICAL"])].head(10), use_container_width=True)
-
-elif page == "Severity Predictor":
-    st.header("Severity Predictor")
-    st.markdown("Simple model that estimates severity from anomaly type and asset criticality.")
-    if model is None:
-        st.warning("Not enough data to train.")
-    else:
-        le_type, le_crit = encoders
-        atype = st.selectbox("Anomaly type", le_type.classes_)
-        crit = st.selectbox("Asset criticality", le_crit.classes_)
-        if st.button("Predict"):
-            X = [[le_type.transform([atype])[0], le_crit.transform([crit])[0]]]
-            pred = model.predict(X)[0]
-            st.metric("Predicted Severity", pred)
-            st.caption("Demonstration only — trained on synthetic challenge data.")
 
 st.sidebar.caption("KnightHacks 2026 SPOT Challenge")
